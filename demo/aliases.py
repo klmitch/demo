@@ -1,5 +1,6 @@
 import os
 import pwd
+import subprocess
 import sys
 
 
@@ -61,7 +62,7 @@ def default(ctx, sc_line):
     # Build the environment
     env = os.environ.copy()
     env.update(sc_line.vardict)
-    subprocess.call(sc_line.args, env=env)
+    subprocess.check_call(sc_line.args, env=env)
 
 
 @register
