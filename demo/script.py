@@ -8,6 +8,8 @@ import traceback
 
 from demo import aliases
 
+__all__ = ['Script']
+
 
 class PauseCommand(Exception):
     pass
@@ -57,6 +59,11 @@ class ScriptLine(object):
             self.output = True
         elif not line:
             self.type = 'pause'
+
+            # Take out leading '!'
+            if not self.output:
+                self.raw = line
+
             self.output = False
         else:
             self.type = 'command'
@@ -74,8 +81,15 @@ class ScriptLine(object):
         subst_dict = collections.defaultdict(lambda: '')
         subst_dict.update(os.environ)
 
-        # Handle export command specially
-        if args[0] == 'export':
+        # Handle pause and export commands specially
+        if args[0] == 'pause':
+            self.raw = ''
+            self.type = 'pause'
+            self.output = False
+            self.vardict = None
+            self.args = None
+            return
+        elif args[0] == 'export':
             self.type = 'export'
             args.pop(0)
 
@@ -148,8 +162,8 @@ class Script(object):
         # Push another file to process
         self.filestack.append((True, iter(self._read_file(fname))))
 
-    def _prompt(self, input_prompt=False):
-        nextcmd = readline.get_current_history_length() + int(input_prompt)
+    def _prompt(self):
+        nextcmd = readline.get_current_history_length()
         currdir = os.getcwd()
 
         return self.prompt_tmpl % locals()
@@ -187,8 +201,7 @@ class Script(object):
                     inhibit_pause = False
 
                 # Add the line to the history
-                if sc_line.type in ('command', 'export'):
-                    readline.add_history(sc_line.raw)
+                readline.add_history(sc_line.raw)
 
                 # Yield the line
                 yield sc_line
@@ -197,7 +210,7 @@ class Script(object):
         # Helper to generate the prompt
         def get_input():
             try:
-                return raw_input(self._prompt(True)).strip()
+                return raw_input(self._prompt()).strip()
             except EOFError:
                 return ''
 
@@ -226,8 +239,7 @@ class Script(object):
 
             # Do we need to emit the line to stdout?
             if output and sc_line.output:
-                print "%s%s" % (self._prompt(sc_line.type != 'command'),
-                                sc_line)
+                print "%s%s" % (self._prompt(), sc_line)
 
             # Execute the line
             try:

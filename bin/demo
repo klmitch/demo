@@ -1,0 +1,15 @@
+#!/usr/bin/python
+
+import os
+import sys
+
+# If ../demo/__init__.py, add ../ to Python search path
+poss_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                            os.pardir, os.pardir))
+if os.path.exists(os.path.join(poss_topdir, 'demo', '__init__.py')):
+    sys.path.insert(0, poss_topdir)
+
+from demo import main
+
+if __name__ == '__main__':
+    main()

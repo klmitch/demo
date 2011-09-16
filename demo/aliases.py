@@ -3,6 +3,8 @@ import pwd
 import subprocess
 import sys
 
+__all__ = ['register']
+
 
 class Alias(object):
     _aliases = {}
