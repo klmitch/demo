@@ -100,7 +100,7 @@ class ScriptLine(object):
                 args.pop(0)
                 continue
             name, value = args.pop(0).split('=', 1)
-            value = subst(value, subst_dict)
+            value = self._subst(value, subst_dict)
             subst_dict[name] = value
             self.vardict[name] = value
 
@@ -109,7 +109,7 @@ class ScriptLine(object):
             self.type = 'export'
 
         # Save the arguments
-        self.args = args
+        self.args = [self._subst(arg, subst_dict) for arg in args]
 
     def __str__(self):
         return self.raw
