@@ -12,12 +12,28 @@ __all__ = ['Script']
 
 
 class PauseCommand(Exception):
+    """
+    Helper exception raised when a pause line is executed.
+    """
+
     pass
 
 
 class ScriptLine(object):
+    """
+    Represents a single line from a script.
+    """
+
     @staticmethod
     def _subst(text, substs):
+        """
+        Helper method to perform string substitution on `text`.  The
+        `substs` argument provides a dictionary-like object which will
+        be used for computing substitutions.  Uses string.Template to
+        perform $ substitutions, followed by tilde expansion if the
+        result begins with '~'.  Returns the fully substituted string.
+        """
+
         # Start off with $ substitutions
         tmp = string.Template(text).substitute(substs)
 
@@ -28,6 +44,19 @@ class ScriptLine(object):
         return tmp
 
     def __init__(self, fname, lno, line):
+        """
+        Initialize a script line.  The `fname` and `lno` arguments
+        indicate the origin of `line`, which is parsed and
+        substituted.  The resulting object contains `fname` and `lno`
+        attributes, the `raw` text, a `type` (can be "comment",
+        "pause", "command", or "export"), an `output` boolean
+        indicating whether the line should be displayed to the user
+        prior to execution, a `vardict` containing variables that
+        should be set specifically for this command, and an `args`
+        list containing the command arguments (the first element will
+        contain the command name).
+        """
+
         self.fname = fname
         self.lno = lno
         self.raw = line.strip()
@@ -112,9 +141,19 @@ class ScriptLine(object):
         self.args = [self._subst(arg, subst_dict) for arg in args]
 
     def __str__(self):
+        """
+        Returns the raw text of the script line.
+        """
+
         return self.raw
 
     def execute(self, ctx):
+        """
+        Executes the script line within the given context `ctx`.  If
+        the script line is a "pause", raises a PauseCommand exception
+        as a signal to the caller.
+        """
+
         # There are only a handful of types we can handle here...
         if self.type == 'comment':
             return
@@ -132,7 +171,29 @@ class ScriptLine(object):
 
 
 class Script(object):
+    """
+    Represents a script context.  Performs all the actions for
+    reading, outputting, and executing script lines from a variety of
+    input sources.
+    """
+
     def __init__(self, opts):
+        """
+        Initializes a script context.  The `opts` parameter is an
+        object defining the following keys:
+
+            * files - A list of file names from which to read; '-' is
+              interpreted as a read from standard input.
+
+            * output - If not None, identifies the name of a file to
+              which to write the script lines.
+
+            * prompt - A prompt to use for interactive input.
+
+            * debug - A boolean indicating whether to enable debugging
+              output.
+        """
+
         self.opts = opts
         self.exit_flag = False
 
@@ -155,20 +216,41 @@ class Script(object):
         self.in_lno = 1
 
     def exit(self):
+        """
+        Signals the context that it should exit instead of reading the
+        next command.
+        """
+
         # Exit the interpreter on the next statement
         self.exit_flag = True
 
     def push_file(self, fname):
+        """
+        Causes a new file to be placed on the file stack.  The new
+        file will be read completely, then execution of the current
+        file will be resumed.
+        """
+
         # Push another file to process
         self.filestack.append((True, iter(self._read_file(fname))))
 
     def _prompt(self):
+        """
+        Helper routine to generate a prompt.
+        """
+
         nextcmd = readline.get_current_history_length()
         currdir = os.getcwd()
 
         return self.prompt_tmpl % locals()
 
     def _iter_lines(self):
+        """
+        Generator to read a sequence of lines from the file stack.
+        Once reading of one file is complete, it is popped off the
+        stack and reading of the next file on the stack is resumed.
+        """
+
         while self.filestack:
             try:
                 # Yield the next line
@@ -177,6 +259,11 @@ class Script(object):
                 self.filestack.pop(-1)
 
     def _read_file(self, fname):
+        """
+        Generator to read ScriptLine objects from the file named
+        `fname`.
+        """
+
         lno = 0
         # Ignore leading blank lines that would be treated as pauses
         inhibit_pause = True
@@ -207,6 +294,11 @@ class Script(object):
                 yield sc_line
 
     def _read_input(self):
+        """
+        Generator to read ScriptLine objects from standard input.
+        Ends when a blank line is entered.
+        """
+
         # Helper to generate the prompt
         def get_input():
             try:
@@ -227,6 +319,14 @@ class Script(object):
             line = get_input()
 
     def execute(self):
+        """
+        Executes the script context.  Reads lines from the files on
+        the file stack and executes them in turn.  Pause commands are
+        handled by pushing the _read_input() generator onto the file
+        stack.  Processing ends with a final pushing of _read_input()
+        onto the file stack.  This is the main loop.
+        """
+
         recent_pause = False
 
         for output, sc_line in self._iter_lines():
